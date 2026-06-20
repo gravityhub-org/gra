@@ -248,6 +248,13 @@ def h5_to_dict(h5_obj):
 
 def _load_pe_samples(event_name):
     output_dir = f"{current_dir}/{event_name}/official_pe"
+    if not os.path.isdir(output_dir) or not any(
+        fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)
+    ):
+        _get_lvk_pe_data(event_name)
+    if not os.path.isdir(output_dir):
+        typer.echo(f"No PE directory for event '{event_name}' at {output_dir}.")
+        return None
     pe_files = [fname for fname in os.listdir(output_dir) if fname.endswith('.hdf5') or fname.endswith('.h5')]
     if len(pe_files) == 0:
         typer.echo(f"No PE files found for event '{event_name}' in {output_dir}.")
@@ -364,11 +371,12 @@ def _process_psd_welch(event_name):
     fig, ax = plots.plot_psd(psds_after, fig=fig)
     # Load the official psd and plot it out:
     official_psds = _process_psd_official(event_name)
-    fig, ax = plots.plot_psd(official_psds, fig=fig)
-    # Change the color of the 'official' psd to black:
-    for ax_i in ax:
-        line = ax_i.get_lines()[-1]  # Get the last line, which should be the official psd
-        line.set_color('black')
+    if official_psds is not None:
+        fig, ax = plots.plot_psd(official_psds, fig=fig)
+        # Change the color of the 'official' psd to black:
+        for ax_i in ax:
+            line = ax_i.get_lines()[-1]  # Get the last line, which should be the official psd
+            line.set_color('black')
     fig.savefig(f"{event_name}/{event_name}_psd_welch.pdf", bbox_inches='tight')
     return psds
 
