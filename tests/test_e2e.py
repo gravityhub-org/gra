@@ -30,7 +30,7 @@ runner = CliRunner()
 def test_get_lvk_strain_e2e_cached(event_workspace, monkeypatch):
     monkeypatch.chdir(event_workspace)
 
-    from gra import get_lvk_strain
+    from gra.data import get_lvk_strain
 
     name, strain = get_lvk_strain(EVENT_NAME, download_pe=False)
 
@@ -44,7 +44,7 @@ def test_process_lvk_event_e2e_writes_artifacts(event_workspace_with_pe, monkeyp
     monkeypatch.chdir(event_workspace_with_pe)
     event_dir = event_workspace_with_pe / EVENT_NAME
 
-    from gra import process_lvk_event
+    from gra.data import process_lvk_event
 
     process_lvk_event(EVENT_NAME)
 

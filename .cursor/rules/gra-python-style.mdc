@@ -33,6 +33,8 @@ alwaysApply: false
 
 - Heavy deps imported inside functions where the rest of the file does (`plots` inside process helpers).
 - `data_lvk.py`: keep the swiglal warning filter at module top.
+- `__init__.py`: **never** add imports or re-exports (keeps CLI/tab completion fast).
+- CLI commands: lazy `from . import data` inside the handler, never at `cli.py` module level.
 
 ## Scope discipline
 

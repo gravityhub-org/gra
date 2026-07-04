@@ -11,23 +11,61 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-def test_top_level_package_reexports_public_api():
-    import gra
-    from gra import data as data_mod
-    from gra import data_lvk as data_lvk_mod
-    from gra import plots as plots_mod
+def test_public_api_on_submodules():
+    from gra.data import get_2mass_data, get_lvk_strain, list_data_lvk, process_lvk_event
+    from gra.data_lvk import h5_to_dict, remove_duplicates
+    from gra.plots import plot_psd, plot_strain
 
-    assert gra.data is data_mod
-    assert gra.data_lvk is data_lvk_mod
-    assert gra.plots is plots_mod
-    assert gra.get_2mass_data is data_mod.get_2mass_data
-    assert gra.get_lvk_strain is data_mod.get_lvk_strain
-    assert gra.list_data_lvk is data_mod.list_data_lvk
-    assert gra.process_lvk_event is data_mod.process_lvk_event
-    assert gra.remove_duplicates is data_lvk_mod.remove_duplicates
-    assert gra.h5_to_dict is data_lvk_mod.h5_to_dict
-    assert gra.plot_strain is plots_mod.plot_strain
-    assert gra.plot_psd is plots_mod.plot_psd
+    for fn in (
+        get_2mass_data,
+        get_lvk_strain,
+        list_data_lvk,
+        process_lvk_event,
+        remove_duplicates,
+        h5_to_dict,
+        plot_strain,
+        plot_psd,
+    ):
+        assert callable(fn)
+
+
+def test_gra_package_import_stays_lightweight():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "import gra\n"
+        "heavy = any(m in sys.modules for m in ('gwpy', 'lalframe', 'h5py', 'bilby'))\n"
+        "print('ok' if not heavy else 'heavy')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "ok"
+
+
+def test_cli_import_stays_lightweight():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "from gra.cli import app\n"
+        "assert app is not None\n"
+        "heavy = any(m in sys.modules for m in ('gwpy', 'lalframe', 'h5py', 'bilby'))\n"
+        "print('ok' if not heavy else 'heavy')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "ok"
 
 
 # ---------------------------------------------------------------------------

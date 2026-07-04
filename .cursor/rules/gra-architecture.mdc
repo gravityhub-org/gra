@@ -37,4 +37,11 @@ New features must follow this cache-first, per-event folder pattern.
 ## Public API
 
 User-facing functions live in `data.py` (re-exported from `data_lvk` where applicable).
+Import as `gra.data`, `gra.data_lvk`, `gra.plots` — **not** from `gra` top-level.
 Internal helpers use `_` prefix and stay in the owning module.
+
+## `__init__.py` (critical)
+
+- **No imports** in `src/gra/__init__.py` — docstring only.
+- Never re-export `data`, `data_lvk`, `plots`, or their functions from `gra`.
+- CLI autocomplete and `import gra` must stay lightning fast; heavy deps load only inside command handlers / submodule use.

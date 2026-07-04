@@ -15,7 +15,7 @@ from likelihoodloader import (
     load_psds_from_posterior,
 )
 
-from gra import data_lvk
+from . import data_lvk
 
 
 def _posterior_path(event_name: str) -> str:
