@@ -9,6 +9,7 @@ from gwosc.datasets import find_datasets, event_gps, event_detectors
 from zenodo_get import download as zenodo_download
 import asyncio
 import concurrent.futures
+import threading
 from functools import partial
 import gwpy.timeseries
 from lalframe.utils import frtools
@@ -38,6 +39,27 @@ _LVK_CATALOGS = [
 ]
 _lvk_events_cache = None
 _event_catalog_cache = {}
+_zenodo_lock = threading.Lock()
+
+
+def _event_dir(event_name):
+    return os.path.abspath(os.path.join(os.getcwd(), event_name))
+
+
+def _pe_dir(event_name):
+    return os.path.join(_event_dir(event_name), "official_pe")
+
+
+def _safe_zenodo_download(record_id, output_dir, file_glob):
+    """Zenodo-get may chdir; serialize downloads and restore cwd for parallel runs."""
+    output_dir = os.path.abspath(output_dir)
+    with _zenodo_lock:
+        cwd = os.getcwd()
+        try:
+            zenodo_download(record_id, output_dir=output_dir, file_glob=file_glob)
+        finally:
+            if os.getcwd() != cwd:
+                os.chdir(cwd)
 
 
 def _ensure_dir(path):
@@ -132,8 +154,9 @@ def _pe_glob_pattern(catalog, event_name):
 
 
 async def _get_lvk_pe_data_async(event_name):
-    output_dir = f"{os.getcwd()}/{event_name}"
-    if any(fname.endswith('.hdf5') for fname in os.listdir(output_dir)):
+    output_dir = _pe_dir(event_name)
+    _ensure_dir(output_dir)
+    if any(fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)):
         typer.echo(f"PE data for '{event_name}' already exists in {output_dir}. Skipping download.")
         return
 
@@ -153,7 +176,7 @@ async def _get_lvk_pe_data_async(event_name):
     loop = asyncio.get_running_loop()
     for record_id in record_ids:
         download_func = partial(
-            zenodo_download, record_id, output_dir=".", file_glob=pattern,
+            _safe_zenodo_download, record_id, output_dir, pattern,
         )
         try:
             await loop.run_in_executor(None, download_func)
@@ -169,7 +192,7 @@ async def _get_lvk_pe_data_async(event_name):
     typer.echo(f"Could not find PE data for '{event_name}' in Zenodo for catalog '{catalog}'.")
 
 def _get_lvk_pe_data_filename(event_name):
-    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
+    output_dir = _pe_dir(event_name)
     _ensure_dir(output_dir)
     pe_files = [
         fname for fname in os.listdir(output_dir)
@@ -188,7 +211,7 @@ def _get_lvk_pe_data_filename(event_name):
 
 
 def _get_lvk_pe_data(event_name):
-    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
+    output_dir = _pe_dir(event_name)
     _ensure_dir(output_dir)
     if any(fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)):
         typer.echo(f"PE data for '{event_name}' already exists in {output_dir}. Skipping download.")
@@ -208,7 +231,7 @@ def _get_lvk_pe_data(event_name):
     for record_id in record_ids:
         typer.echo(f"Downloading PE data for '{event_name}' from Zenodo record {record_id}...")
         try:
-            zenodo_download(record_id, output_dir=output_dir, file_glob=pattern)
+            _safe_zenodo_download(record_id, output_dir, pattern)
         except Exception as e:
             typer.echo(
                 f"Zenodo download failed for '{event_name}' (record {record_id}): {e}"
@@ -422,7 +445,7 @@ def h5_to_dict(h5_obj):
 
 
 def _pe_file_path(event_name):
-    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
+    output_dir = _pe_dir(event_name)
     _ensure_dir(output_dir)
     pe_files = [
         fname for fname in os.listdir(output_dir)
@@ -469,7 +492,7 @@ def _write_noise_gwf(ts, path):
 
 
 def _load_pe_psds(event_name):
-    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
+    output_dir = _pe_dir(event_name)
     if not os.path.isdir(output_dir) or not any(
         fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)
     ):
@@ -496,7 +519,7 @@ def _load_pe_psds(event_name):
 
 
 def _load_pe_samples(event_name):
-    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
+    output_dir = _pe_dir(event_name)
     if not os.path.isdir(output_dir) or not any(
         fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)
     ):
