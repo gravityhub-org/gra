@@ -399,16 +399,38 @@ def _pe_file_path(event_name):
 
 
 def _approximant_group(pe_file):
-    approximants = ['NRSur7dq4', 'SEOBNRv4PHM', 'IMRPhenomXPHM', 'IMRPhenomPv2', 'IMRPhenomD']
-    approximants = [f"C00:{approx}" for approx in approximants] + approximants
+    preferred = [
+        'NRSur7dq4', 'SEOBNRv5PHM', 'SEOBNRv4PHM', 'IMRPhenomXPHM',
+        'IMRPhenomPv2', 'IMRPhenomD', 'IMRPhenomXPNR', 'Mixed',
+    ]
     with h5py.File(pe_file, 'r') as f:
-        for approx in approximants:
-            if approx in f:
-                return approx
-        typer.echo(
-            f"WARNING: No known approximant found in PE file. Available approximants: {list(f.keys())}"
-        )
+        keys = [k for k in f.keys() if k not in ('history', 'version')]
+        for approx in preferred:
+            for key in keys:
+                if approx in key:
+                    return key
+        if keys:
+            typer.echo(
+                f"WARNING: using first available approximant group: {keys[0]}"
+            )
+            return keys[0]
+        typer.echo("WARNING: No approximant groups found in PE file.")
     return None
+
+
+def _write_noise_gwf(ts, path):
+    """Write cropped noise to GWF, trimming edges if LALFrame GPS alignment fails."""
+    for skip in range(10):
+        for end_skip in range(10):
+            seg = ts[skip:len(ts) - end_skip] if end_skip else ts[skip:]
+            if len(seg) < 2:
+                continue
+            try:
+                seg.write(path, format='gwf')
+                return
+            except RuntimeError:
+                continue
+    typer.echo(f"WARNING: could not write noise segment to {path}, skipping.")
 
 
 def _load_pe_psds(event_name):
@@ -494,15 +516,17 @@ def _crop_noise_around_signal(event_name, croplength=4, info=None, strain_data=N
     for det, ts in strain_data.items():
         t0 = ts.times.value[0]
         tf = ts.times.value[-1]
+        dt = 1.0 / float(ts.sample_rate.value)
         noise[det] = {
             'before': ts.crop(t0, gpstime - croplength),
-            'after': ts.crop(gpstime + croplength, tf),
+            # +dt avoids LALFrame start-time mismatch on GWF write
+            'after': ts.crop(gpstime + croplength + dt, tf),
         }
     for det in noise:
         noise_before_path = f"{event_name}/{event_name}_{det}_noise_before.gwf"
         noise_after_path = f"{event_name}/{event_name}_{det}_noise_after.gwf"
-        noise[det]['before'].write(noise_before_path, format='gwf')
-        noise[det]['after'].write(noise_after_path, format='gwf')
+        _write_noise_gwf(noise[det]['before'], noise_before_path)
+        _write_noise_gwf(noise[det]['after'], noise_after_path)
         typer.echo(f"Saved cropped noise data for {det} to {noise_before_path} and {noise_after_path}.")
     return noise
 
