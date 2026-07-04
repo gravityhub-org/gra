@@ -1026,7 +1026,7 @@ requires-dist = [
     { name = "ipython", specifier = ">=9.9.0" },
     { name = "lalsuite", specifier = ">=7.26.1" },
     { name = "ler", specifier = ">=0.5.9" },
-    { name = "likelihoodloader", git = "ssh://git@github.com/gravityhub-org/likelihoodloader.git" },
+    { name = "likelihoodloader", git = "https://github.com/gravityhub-org/likelihoodloader.git" },
     { name = "numpy", specifier = ">=2.2.0" },
     { name = "rich", specifier = ">=14.3.3" },
     { name = "silx", specifier = ">=3.0.0" },
@@ -1498,18 +1498,19 @@ wheels = [
 
 [[package]]
 name = "jampy"
-version = "9.0.0"
+version = "9.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
+    { name = "mgefit" },
     { name = "numpy" },
     { name = "plotbin" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6e/20/289b277b43c3567b1899f3813263d075eb80e150fa88085f7cb8c042b730/jampy-9.0.0.tar.gz", hash = "sha256:0259f7b439fb04242dbf9b364bc3674d259d52b7cf505ce83ae235bfcda2106e", size = 121611, upload-time = "2026-06-18T08:09:06.069Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/b9/3be7860d6080a9e6c018dd0100d7678608a1667cea921db429e7cd9d8781/jampy-9.0.2.tar.gz", hash = "sha256:1d9672832223ab6073b11403f7f437d6c135a6b5fc5782a2b8ddeea344b572c4", size = 126246, upload-time = "2026-07-01T18:05:46.85Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/a5/ff77dc300618a4b5a0bf32f0069e82f3a68fbe88e0ed687ce70a7f5983dc/jampy-9.0.0-py3-none-any.whl", hash = "sha256:0b0b0723b8f8f491de3305ac3508b4955c376f866c7ddb905f0b78a2d7108789", size = 140797, upload-time = "2026-06-18T08:09:04.517Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/43/774bda945166def8b5f11793a25663634bdd7673c70698b72aea1bddd470/jampy-9.0.2-py3-none-any.whl", hash = "sha256:1e35aef738979b1edd24aacc25d3208faa26ed96822361dd7f58ef4be663d919", size = 141127, upload-time = "2026-07-01T18:05:45.491Z" },
 ]
 
 [[package]]
@@ -1845,7 +1846,7 @@ wheels = [
 [[package]]
 name = "likelihoodloader"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/gravityhub-org/likelihoodloader.git#0a14cba5b38a3b0c71d63e097d5cab41c69c2d9e" }
+source = { git = "https://github.com/gravityhub-org/likelihoodloader.git#0a14cba5b38a3b0c71d63e097d5cab41c69c2d9e" }
 dependencies = [
     { name = "astropy" },
     { name = "bilby" },

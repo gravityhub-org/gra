@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "likelihoodloader @ git+ssh://git@github.com/gravityhub-org/likelihoodloader.git",
+    "likelihoodloader @ git+https://github.com/gravityhub-org/likelihoodloader.git",
     "astropy>=7.2.0",
     "astroquery>=0.4.11",
     "async>=0.6.2",
