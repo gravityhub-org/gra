@@ -19,18 +19,21 @@ from rich.console import Console
 
 console = Console()
 
-current_dir = os.getcwd()
-
 pe_zenodo_releases = {}
 pe_zenodo_releases['GWTC-2.1-confident'] = 'https://zenodo.org/records/6513631'
 pe_zenodo_releases['GWTC-3-confident'] = 'https://zenodo.org/records/5546663'
 pe_zenodo_releases['GWTC-4.0'] = 'https://zenodo.org/records/17014085'
+pe_zenodo_releases['GWTC-5.0'] = [
+    'https://zenodo.org/records/20348005',
+    'https://zenodo.org/records/20348006',
+]
 
 _LVK_CATALOGS = [
     'GWTC-1-confident',
     'GWTC-2.1-confident',
     'GWTC-3-confident',
     'GWTC-4.0',
+    'GWTC-5.0',
     'O4_Discovery_Papers',
 ]
 _lvk_events_cache = None
@@ -114,15 +117,22 @@ def _find_event_catalog(event_name):
     return None
 
 
+def _pe_zenodo_record_ids(catalog):
+    entry = pe_zenodo_releases[catalog]
+    if isinstance(entry, str):
+        entry = [entry]
+    return [url.rstrip('/').split('/')[-1] for url in entry]
+
+
 def _pe_glob_pattern(catalog, event_name):
     """Return the Zenodo file-glob pattern for a given catalog and event."""
-    if catalog == "GWTC-4.0":
+    if catalog in ("GWTC-4.0", "GWTC-5.0"):
         return f"*{event_name}*"
     return f"*{event_name}*nocosmo*.h5"
 
 
 async def _get_lvk_pe_data_async(event_name):
-    output_dir = f"{current_dir}/{event_name}"
+    output_dir = f"{os.getcwd()}/{event_name}"
     if any(fname.endswith('.hdf5') for fname in os.listdir(output_dir)):
         typer.echo(f"PE data for '{event_name}' already exists in {output_dir}. Skipping download.")
         return
@@ -136,17 +146,24 @@ async def _get_lvk_pe_data_async(event_name):
         typer.echo(f"No Zenodo release mapping found for catalog '{catalog}'.")
         return
 
-    record_id = pe_zenodo_releases[catalog].split('/')[-1]
+    record_ids = _pe_zenodo_record_ids(catalog)
+    pattern = _pe_glob_pattern(catalog, event_name)
     typer.echo(f"Queuing Zenodo download for {event_name}...")
 
     loop = asyncio.get_running_loop()
-    download_func = partial(zenodo_download, record_id, output_dir=".", file_glob=_pe_glob_pattern(catalog, event_name))
-    await loop.run_in_executor(None, download_func)
+    for record_id in record_ids:
+        download_func = partial(
+            zenodo_download, record_id, output_dir=".", file_glob=pattern,
+        )
+        await loop.run_in_executor(None, download_func)
+        if any(fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)):
+            typer.echo(f"Finished downloading PE data for {event_name}")
+            return
 
-    typer.echo(f"Finished downloading PE data for {event_name}")
+    typer.echo(f"Could not find PE data for '{event_name}' in Zenodo for catalog '{catalog}'.")
 
 def _get_lvk_pe_data_filename(event_name):
-    output_dir = f"{current_dir}/{event_name}/official_pe"
+    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
     _ensure_dir(output_dir)
     if any(fname.endswith('.hdf5') for fname in os.listdir(output_dir)):
         return os.path.join(output_dir, next(fname for fname in os.listdir(output_dir) if fname.endswith('.hdf5')))
@@ -154,7 +171,7 @@ def _get_lvk_pe_data_filename(event_name):
         _get_lvk_pe_data(event_name)
         return _get_lvk_pe_data_filename(event_name)  # Try again after downloading
 def _get_lvk_pe_data(event_name):
-    output_dir = f"{current_dir}/{event_name}/official_pe"
+    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
     _ensure_dir(output_dir)
     if any(fname.endswith('.hdf5') for fname in os.listdir(output_dir)):
         typer.echo(f"PE data for '{event_name}' already exists in {output_dir}. Skipping download.")
@@ -169,10 +186,15 @@ def _get_lvk_pe_data(event_name):
         typer.echo(f"No Zenodo release mapping found for catalog '{catalog}'.")
         return
 
-    record_id = pe_zenodo_releases[catalog].split('/')[-1]
-    typer.echo(f"Downloading PE data for '{event_name}' from Zenodo record {record_id}...")
-    zenodo_download(record_id, output_dir=output_dir, file_glob=_pe_glob_pattern(catalog, event_name))
-    typer.echo(f"Download complete. Files saved to: {output_dir}")
+    record_ids = _pe_zenodo_record_ids(catalog)
+    pattern = _pe_glob_pattern(catalog, event_name)
+    for record_id in record_ids:
+        typer.echo(f"Downloading PE data for '{event_name}' from Zenodo record {record_id}...")
+        zenodo_download(record_id, output_dir=output_dir, file_glob=pattern)
+        if any(fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)):
+            typer.echo(f"Download complete. Files saved to: {output_dir}")
+            return
+    typer.echo(f"Could not find PE data for '{event_name}' in Zenodo for catalog '{catalog}'.")
 
 def remove_duplicates(seq):
     # Each event has multiple versions, so the last bit in the name of '-vX'. We remove it and then remove duplicates.
@@ -365,7 +387,7 @@ def h5_to_dict(h5_obj):
 
 
 def _pe_file_path(event_name):
-    output_dir = f"{current_dir}/{event_name}/official_pe"
+    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
     _ensure_dir(output_dir)
     pe_files = [
         fname for fname in os.listdir(output_dir)
@@ -390,7 +412,7 @@ def _approximant_group(pe_file):
 
 
 def _load_pe_psds(event_name):
-    output_dir = f"{current_dir}/{event_name}/official_pe"
+    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
     if not os.path.isdir(output_dir) or not any(
         fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)
     ):
@@ -410,7 +432,7 @@ def _load_pe_psds(event_name):
 
 
 def _load_pe_samples(event_name):
-    output_dir = f"{current_dir}/{event_name}/official_pe"
+    output_dir = f"{os.getcwd()}/{event_name}/official_pe"
     if not os.path.isdir(output_dir) or not any(
         fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)
     ):

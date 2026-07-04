@@ -46,6 +46,19 @@ def test_pe_glob_pattern_gwtc4():
     assert _pe_glob_pattern("GWTC-4.0", "GW200105") == "*GW200105*"
 
 
+def test_pe_glob_pattern_gwtc5():
+    from gra.data_lvk import _pe_glob_pattern
+    assert _pe_glob_pattern("GWTC-5.0", "GW240406_062847") == "*GW240406_062847*"
+
+
+def test_pe_zenodo_record_ids_gwtc5():
+    from gra.data_lvk import _pe_zenodo_record_ids
+    assert _pe_zenodo_record_ids("GWTC-5.0") == ["20348005", "20348006"]
+
+
+def test_pe_zenodo_record_ids_single():
+    from gra.data_lvk import _pe_zenodo_record_ids
+    assert _pe_zenodo_record_ids("GWTC-4.0") == ["17014085"]
 def test_pe_glob_pattern_older_catalog():
     from gra.data_lvk import _pe_glob_pattern
     assert _pe_glob_pattern("GWTC-3-confident", "GW190814") == "*GW190814*nocosmo*.h5"
@@ -140,6 +153,19 @@ def test_find_event_catalog_not_found():
     with patch("gra.data_lvk.find_datasets", return_value=[]):
         result = _find_event_catalog("GW999999")
     assert result is None
+
+
+def test_find_event_catalog_gwtc5():
+    from gra.data_lvk import _find_event_catalog
+
+    def fake_find_datasets(type, catalog):
+        if catalog == "GWTC-5.0":
+            return ["GW240406_062847-v1"]
+        return []
+
+    with patch("gra.data_lvk.find_datasets", side_effect=fake_find_datasets):
+        result = _find_event_catalog("GW240406_062847")
+    assert result == "GWTC-5.0"
 
 
 # ---------------------------------------------------------------------------
