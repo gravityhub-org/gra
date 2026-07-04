@@ -1,0 +1,42 @@
+---
+description: gra Python coding style and implementation patterns
+globs: src/gra/**/*.py
+alwaysApply: false
+---
+
+# gra Python style
+
+## Naming
+
+- `snake_case` functions; `_leading_underscore` for module-private helpers.
+- Event routing: `event_name == 'all'` for bulk; `'spectroscopic'` for 2MASS.
+- Prefer descriptive names over one-liner abstractions (`_ensure_dir`, `_strain_gwf_path`).
+
+## User feedback
+
+- Use `typer.echo(...)` for CLI-visible progress and warnings.
+- Invalid events: `check_event_name` → `typer.Exit(code=1)`.
+
+## I/O and caching
+
+- Check disk before network: if file exists, load and skip download.
+- `os.makedirs(path, exist_ok=True)` via `_ensure_dir`.
+- Paths relative to `os.getcwd()` — do not introduce a global config path unless asked.
+
+## Performance
+
+- Reuse loaded objects via optional kwargs (`info=`, `strain_data=`, `psds=`, `noise=`).
+- Parallelism: `concurrent.futures` (`ThreadPoolExecutor` for I/O, `ProcessPoolExecutor` for CPU-heavy / multi-event).
+- Use `functools.partial` with `executor.map` — match existing `data_lvk.py` patterns.
+
+## Imports
+
+- Heavy deps imported inside functions where the rest of the file does (`plots` inside process helpers).
+- `data_lvk.py`: keep the swiglal warning filter at module top.
+
+## Scope discipline
+
+- Minimal diff; no new abstraction layers for one-off helpers.
+- Module docstring on public modules (`data.py`, `data_lvk.py`) describing structure and API.
+- `if __name__ == "__main__":` smoke blocks are fine for manual runs — keep them event-scoped.
+- Type hints only where the file already uses them (`pe_lvk.py`); don't retrofit typing project-wide.

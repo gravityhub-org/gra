@@ -1,0 +1,11 @@
+---
+description: gra CLI extension conventions
+globs: src/gra/cli.py
+alwaysApply: false
+---
+
+# gra CLI extensions
+
+- Register new commands on existing Typer apps (`data_get_app`, `data_process_app`, …).
+- Command handlers: parse args → call one `data.*` function → return its result.
+- Do not import `data_lvk` or `likelihoodloader` directly from `cli.py`.

@@ -1,0 +1,36 @@
+---
+description: gra module boundaries and data-flow conventions
+alwaysApply: true
+---
+
+# gra architecture
+
+## Layering (do not blur)
+
+- `cli.py` — Typer wiring only. Lazy-import `from . import data` inside commands.
+- `data.py` — Public facade: re-export LVK API + non-LVK helpers (e.g. 2MASS). Stay thin.
+- `data_lvk.py` — All LVK strain/PE/download/process logic.
+- `plots.py` — Matplotlib only; no downloads or file discovery.
+- `pe_lvk.py` — Event-name adapters only; delegate bilby/likelihood work to `likelihoodloader`.
+
+## Call direction
+
+CLI → `data` → `data_lvk` / `plots`
+`pe_lvk` → `data_lvk` (paths) + `likelihoodloader` (PE/likelihood)
+
+Never put LVK download logic in `cli.py` or `data.py`.
+Never put bilby/likelihood building in `data_lvk.py` — that belongs in `likelihoodloader` via `pe_lvk.py`.
+
+## On-disk layout (cwd-relative)
+
+Per event `{event_name}/`:
+- `{event}_{det}_strain.gwf`, `{event}_info.json`
+- `official_pe/*.hdf5` (Zenodo PE)
+- `{event}_{det}_noise_{before,after}.gwf`, `*_psd*.npy`, `*_strain.pdf`, `*_psd*.pdf`
+
+New features must follow this cache-first, per-event folder pattern.
+
+## Public API
+
+User-facing functions live in `data.py` (re-exported from `data_lvk` where applicable).
+Internal helpers use `_` prefix and stay in the owning module.

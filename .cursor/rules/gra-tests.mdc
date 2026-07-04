@@ -1,0 +1,30 @@
+---
+description: gra test conventions
+globs: tests/**
+alwaysApply: false
+---
+
+# gra tests
+
+## Principles
+
+- Tests run offline: mock GWOSC, Zenodo, gwpy, frtools, and network I/O.
+- Use `tmp_path` + `monkeypatch.chdir(tmp_path)` for filesystem tests.
+
+## Patching targets
+
+- CLI tests (`test_cli.py`): patch `gra.data.<fn>` — CLI imports through the facade.
+- `data_lvk` unit tests: patch `gra.data_lvk.<symbol>`.
+- Use `typer.testing.CliRunner` + `gra.cli.app` for CLI smoke tests.
+
+## Structure
+
+- Section headers: `# ---------------------------------------------------------------------------`
+- One concern per test; name tests `test_<function>_<scenario>`.
+- Assert call args explicitly (e.g. `mock.assert_called_once_with("GW150914", True, 1200)`).
+
+## What to test
+
+- Wiring and argument routing for CLI.
+- Pure helpers (`remove_duplicates`, `h5_to_dict`, `_pe_glob_pattern`, etc.).
+- Do not add integration tests that hit GWOSC/Zenodo unless explicitly requested.
