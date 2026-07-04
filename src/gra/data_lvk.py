@@ -60,11 +60,11 @@ def _read_gwf(filename):
 
 
 def _read_gwfs(paths_by_key):
-    """Read multiple GWF files in parallel using a process per file."""
+    """Read multiple GWF files in parallel (I/O-bound; one thread per file)."""
     if len(paths_by_key) <= 1:
         return {key: _read_gwf(path) for key, path in paths_by_key.items()}
     items = list(paths_by_key.items())
-    with concurrent.futures.ProcessPoolExecutor(max_workers=len(items)) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(items)) as executor:
         results = list(executor.map(_read_gwf, (path for _, path in items)))
     return {key: result for (key, _), result in zip(items, results)}
 
