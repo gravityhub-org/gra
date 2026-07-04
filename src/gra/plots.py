@@ -28,16 +28,15 @@ def plot_strain(data):
     ax[-1].set_xlabel('Time (s)')
     return fig, ax
 def plot_psd(psds, fig=None):
-    detectors = psds.keys()
-    # Sort the detectors in a consistent order (e.g., alphabetically) to ensure the same order of subplots
-    detectors = sorted(detectors)
-    if fig == None:
-        fig, ax = plt.subplots(1, len(detectors), figsize=(10, 2*len(detectors)), sharex=True)
+    detectors = sorted(psds.keys())
+    if not detectors:
+        raise ValueError("No PSD data to plot")
+    if fig is None:
+        fig, ax = plt.subplots(1, len(detectors), figsize=(10, 2 * len(detectors)), sharex=True)
+        if len(detectors) == 1:
+            ax = [ax]
     else:
-        ax = fig.get_axes()
-    # Make sure ax is always a list, even if there's only one detector
-    if len(detectors) == 1:
-        ax = [ax]
+        ax = list(fig.get_axes())
     for i, det in enumerate(detectors):
         f, psd = np.transpose(psds[det])
         ax[i].loglog(f, psd, label=det)

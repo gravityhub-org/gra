@@ -140,7 +140,7 @@ async def _get_lvk_pe_data_async(event_name):
     catalog = _find_event_catalog(event_name)
     if catalog is None:
         typer.echo(f"Event '{event_name}' not found in available catalogs.")
-        raise typer.Exit(code=1)
+        return
 
     if catalog not in pe_zenodo_releases:
         typer.echo(f"No Zenodo release mapping found for catalog '{catalog}'.")
@@ -155,7 +155,13 @@ async def _get_lvk_pe_data_async(event_name):
         download_func = partial(
             zenodo_download, record_id, output_dir=".", file_glob=pattern,
         )
-        await loop.run_in_executor(None, download_func)
+        try:
+            await loop.run_in_executor(None, download_func)
+        except Exception as e:
+            typer.echo(
+                f"Zenodo download failed for '{event_name}' (record {record_id}): {e}"
+            )
+            continue
         if any(fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)):
             typer.echo(f"Finished downloading PE data for {event_name}")
             return
@@ -165,22 +171,33 @@ async def _get_lvk_pe_data_async(event_name):
 def _get_lvk_pe_data_filename(event_name):
     output_dir = f"{os.getcwd()}/{event_name}/official_pe"
     _ensure_dir(output_dir)
-    if any(fname.endswith('.hdf5') for fname in os.listdir(output_dir)):
-        return os.path.join(output_dir, next(fname for fname in os.listdir(output_dir) if fname.endswith('.hdf5')))
-    else:
-        _get_lvk_pe_data(event_name)
-        return _get_lvk_pe_data_filename(event_name)  # Try again after downloading
+    pe_files = [
+        fname for fname in os.listdir(output_dir)
+        if fname.endswith('.hdf5') or fname.endswith('.h5')
+    ]
+    if pe_files:
+        return os.path.join(output_dir, pe_files[0])
+    _get_lvk_pe_data(event_name)
+    pe_files = [
+        fname for fname in os.listdir(output_dir)
+        if fname.endswith('.hdf5') or fname.endswith('.h5')
+    ]
+    if pe_files:
+        return os.path.join(output_dir, pe_files[0])
+    return None
+
+
 def _get_lvk_pe_data(event_name):
     output_dir = f"{os.getcwd()}/{event_name}/official_pe"
     _ensure_dir(output_dir)
-    if any(fname.endswith('.hdf5') for fname in os.listdir(output_dir)):
+    if any(fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)):
         typer.echo(f"PE data for '{event_name}' already exists in {output_dir}. Skipping download.")
         return
 
     catalog = _find_event_catalog(event_name)
     if catalog is None:
         typer.echo(f"Event '{event_name}' not found in available catalogs.")
-        raise typer.Exit(code=1)
+        return
 
     if catalog not in pe_zenodo_releases:
         typer.echo(f"No Zenodo release mapping found for catalog '{catalog}'.")
@@ -190,7 +207,13 @@ def _get_lvk_pe_data(event_name):
     pattern = _pe_glob_pattern(catalog, event_name)
     for record_id in record_ids:
         typer.echo(f"Downloading PE data for '{event_name}' from Zenodo record {record_id}...")
-        zenodo_download(record_id, output_dir=output_dir, file_glob=pattern)
+        try:
+            zenodo_download(record_id, output_dir=output_dir, file_glob=pattern)
+        except Exception as e:
+            typer.echo(
+                f"Zenodo download failed for '{event_name}' (record {record_id}): {e}"
+            )
+            continue
         if any(fname.endswith(('.hdf5', '.h5')) for fname in os.listdir(output_dir)):
             typer.echo(f"Download complete. Files saved to: {output_dir}")
             return
@@ -348,16 +371,28 @@ def get_lvk_strain_individual_sync(event, download_pe=False, segment_length=60*2
     return _load_lvk_strain(event, download_pe=download_pe, segment_length=segment_length)
 
 
+def _load_lvk_strain_safe(event_name, download_pe=False, segment_length=60*20):
+    try:
+        return _load_lvk_strain(
+            event_name,
+            download_pe=download_pe,
+            segment_length=segment_length,
+        )
+    except Exception as e:
+        typer.echo(f"Error loading '{event_name}': {e}")
+        return None
+
+
 def _get_lvk_strain_all_sync(download_pe=False, segment_length=60*20):
     events = _list_lvk_data()
-    if download_pe:
-        with concurrent.futures.ProcessPoolExecutor(max_workers=32) as executor:
-            load = partial(_load_lvk_strain, download_pe=download_pe, segment_length=segment_length)
-            results = list(executor.map(load, events))
-    else:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(events) or 1)) as executor:
-            load = partial(_load_lvk_strain, download_pe=False, segment_length=segment_length)
-            results = list(executor.map(load, events))
+    workers = min(4, len(events) or 1)
+    load = partial(
+        _load_lvk_strain_safe,
+        download_pe=download_pe,
+        segment_length=segment_length,
+    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        results = list(executor.map(load, events))
     return events, dict(zip(events, results))
 
 
@@ -444,11 +479,18 @@ def _load_pe_psds(event_name):
         typer.echo(f"No PE files found for event '{event_name}' in {output_dir}.")
         return None
     typer.echo(f"pe_path: {pe_path}")
-    approx = _approximant_group(pe_path)
-    if approx is None:
+    try:
+        approx = _approximant_group(pe_path)
+        if approx is None:
+            return None
+        with h5py.File(pe_path, 'r') as f:
+            psds = h5_to_dict(f[approx]['psds'])
+    except OSError as e:
+        typer.echo(f"WARNING: could not read PE file {pe_path}: {e}")
         return None
-    with h5py.File(pe_path, 'r') as f:
-        psds = h5_to_dict(f[approx]['psds'])
+    if not psds:
+        typer.echo(f"WARNING: no PSDs found in PE file for event '{event_name}'.")
+        return None
     typer.echo(f"Loaded PE PSDs from {pe_path} using approximant {approx}.")
     return psds
 
@@ -602,10 +644,11 @@ def _plot_psd_welch(event_name, info, noise, welch_results, official_psds=None):
     fig, ax = plots.plot_psd(psds_before)
     fig, ax = plots.plot_psd(psds_after, fig=fig)
     if official_psds is not None:
-        fig, ax = plots.plot_psd(official_psds, fig=fig)
-        for ax_i in ax:
-            line = ax_i.get_lines()[-1]
-            line.set_color('black')
+        before_dets = sorted(psds_before.keys())
+        for i, det in enumerate(before_dets):
+            if det in official_psds:
+                f, psd = np.transpose(official_psds[det])
+                ax[i].loglog(f, psd, color='black', label=f'{det} official')
     plots.save_figure(fig, f"{event_name}/{event_name}_psd_welch.pdf")
     return psds
 
