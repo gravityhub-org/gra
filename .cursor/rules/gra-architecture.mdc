@@ -5,6 +5,10 @@ alwaysApply: true
 
 # gra architecture
 
+## Philosophy
+
+Keep it simple and changes minimal. Unless there is good reason, do not add new packages.
+
 ## Layering (do not blur)
 
 - `cli.py` — Typer wiring only. Lazy-import `from . import data` inside commands.
